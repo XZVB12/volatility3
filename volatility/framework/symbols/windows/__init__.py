@@ -14,10 +14,12 @@ class WindowsKernelIntermedSymbols(intermed.IntermediateSymbolTable):
 
         # Set-up windows specific types
         self.set_type_class('_ETHREAD', extensions.ETHREAD)
+        self.set_type_class('_KTHREAD', extensions.KTHREAD)
         self.set_type_class('_LIST_ENTRY', extensions.LIST_ENTRY)
         self.set_type_class('_EPROCESS', extensions.EPROCESS)
         self.set_type_class('_UNICODE_STRING', extensions.UNICODE_STRING)
         self.set_type_class('_EX_FAST_REF', extensions.EX_FAST_REF)
+        self.set_type_class('_TOKEN', extensions.TOKEN)
         self.set_type_class('_OBJECT_HEADER', pool.OBJECT_HEADER)
         self.set_type_class('_FILE_OBJECT', extensions.FILE_OBJECT)
         self.set_type_class('_DEVICE_OBJECT', extensions.DEVICE_OBJECT)
@@ -36,7 +38,10 @@ class WindowsKernelIntermedSymbols(intermed.IntermediateSymbolTable):
 
         # This doesn't exist in very specific versions of windows
         try:
-            self.set_type_class('_POOL_HEADER', pool.POOL_HEADER)
+            if self.get_type("_POOL_TRACKER_BIG_PAGES").has_member("PoolType"):
+                self.set_type_class('_POOL_HEADER', pool.POOL_HEADER_VISTA)
+            else:
+                self.set_type_class('_POOL_HEADER', pool.POOL_HEADER)
         except ValueError:
             pass
 

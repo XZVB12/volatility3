@@ -17,6 +17,7 @@ class POOL_HEADER(objects.StructType):
                    type_name: str,
                    use_top_down: bool,
                    executive: bool = False,
+                   kernel_symbol_table: Optional[str] = None,
                    native_layer_name: Optional[str] = None) -> Optional[interfaces.objects.ObjectInterface]:
         """Carve an object or data structure from a kernel pool allocation
 
@@ -24,6 +25,7 @@ class POOL_HEADER(objects.StructType):
             type_name: the data structure type name
             native_layer_name: the name of the layer where the data originally lived
             object_type: the object type (executive kernel objects only)
+            kernel_symbol_table: in case objects of a different symbol table are scanned for
 
         Returns:
             An object as found from a POOL_HEADER
@@ -33,7 +35,16 @@ class POOL_HEADER(objects.StructType):
         if constants.BANG in type_name:
             symbol_table_name, type_name = type_name.split(constants.BANG)[0:2]
 
-        object_header_type = self._context.symbol_space.get_type(symbol_table_name + constants.BANG + "_OBJECT_HEADER")
+        # when checking for symbols from a table other than nt_symbols grab _OBJECT_HEADER from the kernel
+        # because symbol_table_name will be different from kernel_symbol_table.
+        if kernel_symbol_table:
+            object_header_type = self._context.symbol_space.get_type(kernel_symbol_table + constants.BANG +
+                                                                     "_OBJECT_HEADER")
+        else:
+            # otherwise symbol_table_name *is* the kernel symbol table, so just use that.
+            object_header_type = self._context.symbol_space.get_type(symbol_table_name + constants.BANG +
+                                                                     "_OBJECT_HEADER")
+
         pool_header_size = self.vol.size
 
         # if there is no object type, then just instantiate a structure
@@ -55,6 +66,8 @@ class POOL_HEADER(objects.StructType):
             if use_top_down:
                 body_offset = object_header_type.relative_child_offset('Body')
                 infomask_offset = object_header_type.relative_child_offset('InfoMask')
+                pointercount_offset = object_header_type.relative_child_offset('PointerCount')
+                pointercount_size = object_header_type.members['PointerCount'][1].size
                 optional_headers, lengths_of_optional_headers = self._calculate_optional_header_lengths(
                     self._context, symbol_table_name)
                 padding_available = None if 'PADDING_INFO' not in optional_headers else optional_headers.index(
@@ -77,6 +90,13 @@ class POOL_HEADER(objects.StructType):
                 # It will always be aligned to a particular alignment
                 for addr in range(0, addr_limit, alignment):
                     infomask_value = infomask_data[addr + infomask_offset]
+                    pointercount_value = int.from_bytes(
+                        infomask_data[addr + pointercount_offset:addr + pointercount_offset + pointercount_size],
+                        byteorder = 'little', signed = True)
+                    if not 0x1000000 > pointercount_value >= 0:
+                        continue
+                    if not infomask_value:
+                        continue
 
                     padding_present = False
                     optional_headers_length = 0
@@ -105,7 +125,7 @@ class POOL_HEADER(objects.StructType):
                             continue
                         padding_length = struct.unpack(
                             "<I", infomask_data[addr - optional_headers_length:addr - optional_headers_length + 4])[0]
-                        padding_length -= lengths_of_optional_headers[padding_available]
+                        padding_length -= lengths_of_optional_headers[padding_available or 0]
 
                     # Certain versions of windows have PADDING_INFO lengths that are too long
                     # So we now check that the padding length is at a minimum the right length
@@ -165,11 +185,34 @@ class POOL_HEADER(objects.StructType):
                 pass
         return headers, sizes
 
+    def is_free_pool(self):
+        return self.PoolType == 0
+
+    def is_paged_pool(self):
+        return self.PoolType % 2 == 0 and self.PoolType > 0
+
+    def is_nonpaged_pool(self):
+        return self.PoolType % 2 == 1
+
+
+class POOL_HEADER_VISTA(POOL_HEADER):
+    """A kernel pool allocation header, updated for Vista and later.
+
+    Exists at the base of the allocation and provides a tag that we can
+    scan for.
+    """
+
+    def is_paged_pool(self):
+        return self.PoolType % 2 == 1
+
+    def is_nonpaged_pool(self):
+        return self.PoolType % 2 == 0 and self.PoolType > 0
+
 
 class POOL_TRACKER_BIG_PAGES(objects.StructType):
     """A kernel big page pool tracker."""
 
-    pool_type_lookup = {}
+    pool_type_lookup = {}  # type: Dict[str, str]
 
     def _generate_pool_type_lookup(self):
         # Enumeration._generate_inverse_choices() raises ValueError because multiple enum names map to the same

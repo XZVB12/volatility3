@@ -131,8 +131,8 @@ class Timeliner(interfaces.plugins.PluginInterface):
             except Exception:
                 vollog.log(logging.INFO, "Exception occurred running plugin: {}".format(plugin_name))
                 vollog.log(logging.DEBUG, traceback.format_exc())
-        for item in sorted(data, key = self._sort_function):
-            yield item
+        for data_item in sorted(data, key = self._sort_function):
+            yield data_item
 
         # Write out a body file if necessary
         if self.config.get('create-bodyfile', True):
@@ -143,13 +143,12 @@ class Timeliner(interfaces.plugins.PluginInterface):
                     # Body format is: MD5|name|inode|mode_as_string|UID|GID|size|atime|mtime|ctime|crtime
 
                     if self._any_time_present(times):
-                        fp.write(
-                            "|{} - {}||||||{}|{}|{}|{}\n".format(
-                                plugin_name, self._sanitize_body_format(item),
-                                self._text_format(times.get(TimeLinerType.ACCESSED, "")),
-                                self._text_format(times.get(TimeLinerType.MODIFIED, "")),
-                                self._text_format(times.get(TimeLinerType.CHANGED, "")),
-                                self._text_format(times.get(TimeLinerType.CREATED, ""))))
+                        fp.write("|{} - {}||||||{}|{}|{}|{}\n".format(
+                            plugin_name, self._sanitize_body_format(item),
+                            self._text_format(times.get(TimeLinerType.ACCESSED, "")),
+                            self._text_format(times.get(TimeLinerType.MODIFIED, "")),
+                            self._text_format(times.get(TimeLinerType.CHANGED, "")),
+                            self._text_format(times.get(TimeLinerType.CREATED, ""))))
                 self.produce_file(filedata)
 
     def _sanitize_body_format(self, value):
@@ -188,7 +187,7 @@ class Timeliner(interfaces.plugins.PluginInterface):
 
                 if isinstance(plugin, TimeLinerInterface):
                     if not len(filter_list) or any(
-                            [filter in plugin.__module__ + '.' + plugin.__class__.__name__ for filter in filter_list]):
+                        [filter in plugin.__module__ + '.' + plugin.__class__.__name__ for filter in filter_list]):
                         plugins_to_run.append(plugin)
             except exceptions.UnsatisfiedException as excp:
                 # Remove the failed plugin from the list and continue

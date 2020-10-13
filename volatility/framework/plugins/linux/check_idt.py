@@ -5,7 +5,7 @@
 import logging
 from typing import List
 
-from volatility.framework import interfaces, renderers, constants, contexts, exceptions, symbols
+from volatility.framework import interfaces, renderers, contexts, symbols
 from volatility.framework.configuration import requirements
 from volatility.framework.renderers import format_hints
 from volatility.framework.symbols import linux
@@ -23,9 +23,8 @@ class Check_idt(interfaces.plugins.PluginInterface):
             requirements.TranslationLayerRequirement(name = 'primary',
                                                      description = 'Memory layer for the kernel',
                                                      architectures = ["Intel32", "Intel64"]),
-
             requirements.SymbolTableRequirement(name = "vmlinux", description = "Linux kernel symbols"),
-            
+            requirements.VersionRequirement(name = 'linuxutils', component = linux.LinuxUtilities, version = (1, 0, 0)),
             requirements.PluginRequirement(name = 'lsmod', plugin = lsmod.Lsmod, version = (1, 0, 0))
         ]
 
@@ -34,8 +33,8 @@ class Check_idt(interfaces.plugins.PluginInterface):
 
         modules = lsmod.Lsmod.list_modules(self.context, self.config['primary'], self.config['vmlinux'])
 
-        handlers = linux.LinuxUtilities.generate_kernel_handler_info(self.context, self.config['primary'], self.config['vmlinux'], modules)
-
+        handlers = linux.LinuxUtilities.generate_kernel_handler_info(self.context, self.config['primary'],
+                                                                     self.config['vmlinux'], modules)
 
         is_32bit = not symbols.symbol_table_is_64bit(self.context, self.config["vmlinux"])
 
@@ -61,7 +60,10 @@ class Check_idt(interfaces.plugins.PluginInterface):
 
         addrs = vmlinux.object_from_symbol("idt_table")
 
-        table = vmlinux.object(object_type = 'array', offset = addrs.vol.offset, subtype = vmlinux.get_type(idt_type), count = idt_table_size)
+        table = vmlinux.object(object_type = 'array',
+                               offset = addrs.vol.offset,
+                               subtype = vmlinux.get_type(idt_type),
+                               count = idt_table_size)
 
         for i in check_idxs:
             ent = table[i]
@@ -86,8 +88,8 @@ class Check_idt(interfaces.plugins.PluginInterface):
 
             module_name, symbol_name = linux.LinuxUtilities.lookup_module_address(self.context, handlers, idt_addr)
 
-            yield(0, [format_hints.Hex(i), format_hints.Hex(idt_addr), module_name, symbol_name])
-        
+            yield (0, [format_hints.Hex(i), format_hints.Hex(idt_addr), module_name, symbol_name])
 
     def run(self):
-        return renderers.TreeGrid([("Index", format_hints.Hex), ("Address", format_hints.Hex), ("Module", str), ("Symbol", str)], self._generator())
+        return renderers.TreeGrid([("Index", format_hints.Hex), ("Address", format_hints.Hex), ("Module", str),
+                                   ("Symbol", str)], self._generator())

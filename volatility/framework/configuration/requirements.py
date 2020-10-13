@@ -387,7 +387,7 @@ class VersionRequirement(interfaces.configuration.RequirementInterface):
     def __init__(self,
                  name: str,
                  description: str = None,
-                 default: None = None,
+                 default: bool = False,
                  optional: bool = False,
                  component: Type[interfaces.configuration.VersionableInterface] = None,
                  version: Optional[Tuple[int, ...]] = None) -> None:
@@ -407,6 +407,7 @@ class VersionRequirement(interfaces.configuration.RequirementInterface):
             return {config_path: self}
         if len(self._version) > 1 and self._component.version[1] < self._version[1]:
             return {config_path: self}
+        context.config[interfaces.configuration.path_join(config_path, self.name)] = True
         return {}
 
 
@@ -415,7 +416,7 @@ class PluginRequirement(VersionRequirement):
     def __init__(self,
                  name: str,
                  description: str = None,
-                 default: None = None,
+                 default: bool = False,
                  optional: bool = False,
                  plugin: Type[interfaces.plugins.PluginInterface] = None,
                  version: Optional[Tuple[int, ...]] = None) -> None:

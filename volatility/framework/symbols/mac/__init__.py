@@ -1,7 +1,7 @@
 # This file is Copyright 2019 Volatility Foundation and licensed under the Volatility Software License 1.0
 # which is available at https://www.volatilityfoundation.org/license/vsl-v1.0
 #
-from typing import Iterator, Any, Iterable
+from typing import Iterator, Any, Iterable, List, Tuple, Set
 
 from volatility.framework import interfaces, objects, exceptions, constants
 from volatility.framework.symbols import intermed
@@ -28,12 +28,19 @@ class MacKernelIntermedSymbols(intermed.IntermediateSymbolTable):
         self.set_type_class('sysctl_oid', extensions.sysctl_oid)
 
 
-class MacUtilities(object):
+class MacUtilities(interfaces.configuration.VersionableInterface):
     """Class with multiple useful mac functions."""
+
+
+    """
+    Version History:
+    1.1.0 -> added walk_list_head API
+    """
+    _version = (1, 1, 0)
 
     @classmethod
     def mask_mods_list(cls, context: interfaces.context.ContextInterface, layer_name: str,
-                       mods: Iterator[Any]) -> Iterator[Any]:
+                       mods: Iterator[Any]) -> List[Tuple[interfaces.objects.ObjectInterface, Any, Any]]:
         """
         A helper function to mask the starting and end address of kernel modules
         """
@@ -147,14 +154,16 @@ class MacUtilities(object):
                 yield f, path, fd_num
 
     @classmethod
-    def walk_tailq(cls,
+    def _walk_iterable(cls,
                    queue: interfaces.objects.ObjectInterface,
+                   list_head_member: str,
+                   list_next_member: str,
                    next_member: str,
                    max_elements: int = 4096) -> Iterable[interfaces.objects.ObjectInterface]:
         seen = set()  # type: Set[int]
 
         try:
-            current = queue.tqh_first
+            current = queue.member(attr = list_head_member)
         except exceptions.InvalidAddressException:
             return
 
@@ -167,9 +176,30 @@ class MacUtilities(object):
             if len(seen) == max_elements:
                 break
 
-            yield current
+            if current.is_readable():
+                yield current
 
             try:
-                current = current.member(attr = next_member).tqe_next
+                current = current.member(attr = next_member).member(attr = list_next_member)
             except exceptions.InvalidAddressException:
                 break
+
+    @classmethod
+    def walk_tailq(cls,
+                   queue: interfaces.objects.ObjectInterface,
+                   next_member: str,
+                   max_elements: int = 4096) -> Iterable[interfaces.objects.ObjectInterface]:
+ 
+        for element in cls._walk_iterable(queue, "tqh_first", "tqe_next", next_member, max_elements):
+            yield element
+
+    @classmethod
+    def walk_list_head(cls,
+                   queue: interfaces.objects.ObjectInterface,
+                   next_member: str,
+                   max_elements: int = 4096) -> Iterable[interfaces.objects.ObjectInterface]:
+
+        for element in cls._walk_iterable(queue, "lh_first", "le_next", next_member, max_elements):
+            yield element
+
+

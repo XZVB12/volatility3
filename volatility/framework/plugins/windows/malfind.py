@@ -29,8 +29,12 @@ class Malfind(interfaces.plugins.PluginInterface):
                                          element_type = int,
                                          description = "Process IDs to include (all other processes are excluded)",
                                          optional = True),
-            requirements.PluginRequirement(name = 'pslist', plugin = pslist.PsList, version = (1, 0, 0)),
-            requirements.PluginRequirement(name = 'vadinfo', plugin = vadinfo.VadInfo, version = (1, 0, 0)),
+            requirements.BooleanRequirement(name = 'dump',
+                                            description = "Extract injected VADs",
+                                            default = False,
+                                            optional = True),
+            requirements.VersionRequirement(name = 'pslist', component = pslist.PsList, version = (1, 1, 0)),
+            requirements.VersionRequirement(name = 'vadinfo', component = vadinfo.VadInfo, version = (1, 1, 0))
         ]
 
     @classmethod
@@ -125,20 +129,32 @@ class Malfind(interfaces.plugins.PluginInterface):
 
                 disasm = interfaces.renderers.Disassembly(data, vad.get_start(), architecture)
 
+                dumped = False
+                if self.config['dump']:
+                    filedata = vadinfo.VadInfo.vad_dump(self.context, proc, vad)
+                    if filedata:
+                        try:
+                            self.produce_file(filedata)
+                            dumped = True
+                        except Exception as excp:
+                            vollog.debug("Unable to dump PE with pid {0}.{1:#x}: {2}".format(
+                                proc.UniqueProcessId, vad.get_start(), excp))
+
                 yield (0, (proc.UniqueProcessId, process_name, format_hints.Hex(vad.get_start()),
                            format_hints.Hex(vad.get_end()), vad.get_tag(),
                            vad.get_protection(
                                vadinfo.VadInfo.protect_values(self.context, self.config["primary"],
-                                                              self.config["nt_symbols"]), vadinfo.winnt_protections),
-                           vad.get_commit_charge(), vad.get_private_memory(), format_hints.HexBytes(data), disasm))
+                                                              self.config["nt_symbols"]),
+                               vadinfo.winnt_protections), vad.get_commit_charge(), vad.get_private_memory(), dumped,
+                           format_hints.HexBytes(data), disasm))
 
     def run(self):
         filter_func = pslist.PsList.create_pid_filter(self.config.get('pid', None))
 
         return renderers.TreeGrid([("PID", int), ("Process", str), ("Start VPN", format_hints.Hex),
                                    ("End VPN", format_hints.Hex), ("Tag", str), ("Protection", str),
-                                   ("CommitCharge", int), ("PrivateMemory", int), ("Hexdump", format_hints.HexBytes),
-                                   ("Disasm", interfaces.renderers.Disassembly)],
+                                   ("CommitCharge", int), ("PrivateMemory", int), ("Dumped", bool),
+                                   ("Hexdump", format_hints.HexBytes), ("Disasm", interfaces.renderers.Disassembly)],
                                   self._generator(
                                       pslist.PsList.list_processes(context = self.context,
                                                                    layer_name = self.config['primary'],

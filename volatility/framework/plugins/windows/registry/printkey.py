@@ -130,10 +130,10 @@ class PrintKey(interfaces.plugins.PluginInterface):
 
                 if isinstance(value_type, renderers.UnreadableValue):
                     vollog.debug("Couldn't read registry value type, so data is unreadable")
-                    value_data = renderers.UnreadableValue()
+                    value_data = renderers.UnreadableValue()  # type: Union[interfaces.renderers.BaseAbsentValue, bytes]
                 else:
                     try:
-                        value_data = node.decode_data()  # type: Union[interfaces.renderers.BaseAbsentValue, bytes]
+                        value_data = node.decode_data()
 
                         if isinstance(value_data, int):
                             value_data = format_hints.MultiTypeData(value_data, encoding = 'utf-8')
