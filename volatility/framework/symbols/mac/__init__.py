@@ -26,6 +26,7 @@ class MacKernelIntermedSymbols(intermed.IntermediateSymbolTable):
         self.set_type_class('sockaddr_dl', extensions.sockaddr_dl)
         self.set_type_class('sockaddr', extensions.sockaddr)
         self.set_type_class('sysctl_oid', extensions.sysctl_oid)
+        self.set_type_class('kauth_scope', extensions.kauth_scope)
 
 
 class MacUtilities(interfaces.configuration.VersionableInterface):
@@ -35,8 +36,9 @@ class MacUtilities(interfaces.configuration.VersionableInterface):
     """
     Version History:
     1.1.0 -> added walk_list_head API
+    1.2.0 -> added walk_slist API
     """
-    _version = (1, 1, 0)
+    _version = (1, 2, 0)
 
     @classmethod
     def mask_mods_list(cls, context: interfaces.context.ContextInterface, layer_name: str,
@@ -202,4 +204,12 @@ class MacUtilities(interfaces.configuration.VersionableInterface):
         for element in cls._walk_iterable(queue, "lh_first", "le_next", next_member, max_elements):
             yield element
 
+    @classmethod
+    def walk_slist(cls,
+                   queue : interfaces.objects.ObjectInterface,
+                   next_member: str,
+                   max_elements: int = 4096) -> Iterable[interfaces.objects.ObjectInterface]:
+            
+        for element in cls._walk_iterable(queue, "slh_first", "sle_next", next_member, max_elements):
+            yield element    
 
