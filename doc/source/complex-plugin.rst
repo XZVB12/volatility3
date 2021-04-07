@@ -6,17 +6,17 @@ which are discussed below.
 
 Writing Reusable Methods
 ------------------------
-Classes which inherit from :py:class:`~volatility.framework.interfaces.plugins.PluginInterface` all have a :py:meth:`run()` method
-which takes no parameters and will return a :py:class:`~volatility.framework.interfaces.renderers.TreeGrid`.  Since most useful
+Classes which inherit from :py:class:`~volatility3.framework.interfaces.plugins.PluginInterface` all have a :py:meth:`run()` method
+which takes no parameters and will return a :py:class:`~volatility3.framework.interfaces.renderers.TreeGrid`.  Since most useful
 functions are parameterized, to provide parameters to a plugin the `configuration` for the context must be appropriately manipulated.
 There is scope for this, in order to run multiple plugins (see `Writing plugins that run other plugins`) but a much simpler method
 is to provide a parameterized `classmethod` within the plugin, which will allow the method to yield whatever kind of output it will
 generate and take whatever parameters it might need.
 
 This is how processes are listed, which is an often used function.  The code lives within the
-:py:class:`~volatility.plugins.windows.pslist.PsList` plugin but can be used by other plugins by providing the
+:py:class:`~volatility3.plugins.windows.pslist.PsList` plugin but can be used by other plugins by providing the
 appropriate parameters (see
-:py:meth:`~volatility.plugins.windows.pslist.PsList.list_processes`).
+:py:meth:`~volatility3.plugins.windows.pslist.PsList.list_processes`).
 It is up to the author of a plugin to validate that any required plugins are present and are the appropriate version.
 
 Writing plugins that run other plugins
@@ -29,30 +29,54 @@ available plugins that feature a Timeliner interface).  This can be achieved wit
 
     automagics = automagic.choose_automagic(automagic.available(self._context), plugin_class)
     plugin = plugins.construct_plugin(self.context, automagics, plugin_class, self.config_path,
-                                self._progress_callback, self._file_consumer)
+                                self._progress_callback, self.open)
 
 This code will first generate suitable automagics for running against the context.  Unfortunately this must be re-run for
 each plugin in order to populate the context's configuration correctly based on the plugin's requirements (which may vary
 between plugins).  Once the automagics have been constructed, the plugin can be instantiated using the helper function
-:py:func:`~volatility.framework.plugins.construct_plugin` providing:
+:py:func:`~volatility3.framework.plugins.construct_plugin` providing:
 
  * the base context (containing the configuration and any already loaded layers or symbol tables),
  * the plugin class to run,
  * the configuration path within the context for the plugin
  * any callback to determine progress in lengthy operations
- * any file consumers for files created during running of the plugin
+ * an open method for the plugin to create files during the run
 
 With the constructed plugin, it can either be run by calling its
-:py:meth:`~volatility.framework.interfaces.plugins.PluginInterface.run` method, or any other known method can
+:py:meth:`~volatility3.framework.interfaces.plugins.PluginInterface.run` method, or any other known method can
 be invoked on it.
+
+Writing plugins that output files
+---------------------------------
+
+Every plugin can create files, but since the user interface must decide how to actually provide these files to the user,
+an abstraction layer is used.
+
+The user interface specifies an open_method (which is actually a class constructor that can double as a python
+ContextManager, so it can be used by the python `with` keyword).  This is set on the plugin using
+`plugin.set_open_method` and can then be called or accessed using `plugin.open(preferred_filename)`.  There are no additional options
+that can be set on the filename, and a :py:class:`~volatility3.framework.interfaces.plugins.FileHandlerInterface` is the result.
+This mimics an `IO[bytes]` object, which closely mimics a standard python file-like object.
+
+As such code for outputting to a file would be expected to look something like:
+
+.. code-block:: python
+
+    with self.open(preferred_filename) as file_handle:
+        file_handle.write(data)
+
+Since self.open returns a ContextManager the file is closed automatically and thus committed for the UI to process as
+necessary.  If the file is not closed, the UI may not be able to properly process it and unexpected results may arise.
+In certain instances you may receive a file_handle from another plugin's method, in which case the file is unlikely to be
+closed to allow the preferred filename to be changed (or data to be added/modified, if necessary).
 
 Writing Scanners
 ----------------
 
-Scanners are objects that adhere to the :py:class:`~volatility.framework.interfaces.layers.ScannerInterface`.  They are
-passed to the :py:meth:`~volatility.framework.interfaces.layers.TranslationLayerInterface.scan` method on layers which will
+Scanners are objects that adhere to the :py:class:`~volatility3.framework.interfaces.layers.ScannerInterface`.  They are
+passed to the :py:meth:`~volatility3.framework.interfaces.layers.TranslationLayerInterface.scan` method on layers which will
 divide the provided range of sections (or the entire layer
-if none are provided) and call the :py:meth:`~volatility.framework.interfaces.layers.ScannerInterface`'s call method
+if none are provided) and call the :py:meth:`~volatility3.framework.interfaces.layers.ScannerInterface`'s call method
 method with each chunk as a parameter, ensuring a suitable amount of overlap (as defined by the scanner).
 The offset of the chunk, within the layer, is also provided as a parameter.
 
@@ -72,7 +96,7 @@ Writing/Using Intermediate Symbol Format Files
 ----------------------------------------------
 
 It can occasionally be useful to create a data file containing the static structures that can create a
-:py:class:`~volatility.framework.interfaces.objects.Template` to be instantiated on a layer.
+:py:class:`~volatility3.framework.interfaces.objects.Template` to be instantiated on a layer.
 Volatility has all the machinery necessary to construct these for you from properly formatted JSON data.
 
 The JSON format is documented by the JSON schema files located in schemas.  These are versioned using standard .so
@@ -91,7 +115,7 @@ Constructing an appropriate file, the file can be loaded into a symbol table as 
 
     table_name = intermed.IntermediateSymbolTable.create(context, config_path, 'sub_path', 'filename')
 
-This code will load a JSON file from one of the standard symbol paths (volatility/symbols and volatility/framework/symbols)
+This code will load a JSON file from one of the standard symbol paths (volatility3/symbols and volatility3/framework/symbols)
 under the additional directory sub_path, with a name matching filename.json
 (the extension should not be included in the filename).
 
@@ -112,7 +136,7 @@ Another useful parameter is `table_mapping` which allows for type referenced ins
         table_mapping = {'one_table': 'another_table'})
 
 The last parameter that can be used is called `class_types` which allows a particular structure to be instantiated on
-a class other than :py:class:`~volatility.framework.objects.StructType`, allowing for additional methods to be defined
+a class other than :py:class:`~volatility3.framework.objects.StructType`, allowing for additional methods to be defined
 and associated with the type.
 
 The table name can then by used to access the constructed table from the context, such as:
@@ -128,7 +152,7 @@ Translation layers offer a way for data to be translated from a higher (domain) 
 The main method that must be overloaded for a translation layer is the `mapping` method.  Usually this is a linear
 mapping whereby a value at an offset in the domain maps directly to an offset in the range.
 
-Most new layers should inherit from :py:class:`~volatility.framework.layers.linear.LinearlyMappedLayer` where they
+Most new layers should inherit from :py:class:`~volatility3.framework.layers.linear.LinearlyMappedLayer` where they
 can define a mapping method as follows:
 
 .. code-block:: python
@@ -158,8 +182,8 @@ of data.  Each chunk contains the following information, in order:
 
 An example (and the most common layer encountered in memory forensics) would be an Intel layer, which models the intel
 page mapping system.  Based on a series of tables stored within the layer itself, an intel layer can convert a virtual
-address to a physical address.  It should be noted that intel layers are surjective in that a single virtual address can
-map to multiple physical addresses, but a single virtual address can only ever map to a single physical address.
+address to a physical address.  It should be noted that intel layers allow multiple virtual addresses to map to the
+same physical address (but a single virtual address cannot ever map to more than one physical address).
 
 As a simple example, in a virtual layer which looks like `abracadabra` but maps to a physical layer that looks
 like `abcdr`, requesting `mapping(5, 4)` would return:
@@ -181,7 +205,7 @@ This mechanism also allowed for some minor optimization in scanning such a layer
 scanning of layers be needed, please refer to the Layer Scanning page.
 
 Whilst it may seem as though some of the data seems redundant (the length values are always the same) this is not the
-case for :py:class:`~volatility.framework.layers.segmented.NonLinearlySegmentedLayer`.  These layers do not guarantee
+case for :py:class:`~volatility3.framework.layers.segmented.NonLinearlySegmentedLayer`.  These layers do not guarantee
 that each domain address maps directly to a range address, and in fact can carry out processing on the data.  These
 layers are most commonly encountered as compression or encryption layers (whereby a domain address may map into a
 chunk of the range, but not directly).  In this instance, the mapping will likely define additional methods that can
@@ -259,5 +283,75 @@ generic names aren't used for something and then best describe something else th
 
 Writing new Templates and Objects
 ---------------------------------
+
+In most cases, a whole new type of object is unnecessary.  It will usually be derived from an
+:py:class:`~volatility3.framework.objects.StructType` (which is itself just another name for a
+:py:class:`~volatility3.framework.objects.AggregateType`, but it's better to use `StructType` for readability).
+
+This can be used as a class override for a particular symbol table, so that an existing structure can be augmented with
+additional methods.  An example of this would be:
+
+.. code-block:: python
+
+    symbol_table = contexts.symbol_space[symbol_table_name]
+    symbol_table.set_type_class('<structure_name>', NewStructureClass)
+
+This will mean that when a specific structure is loaded from the symbol_space, it is not constructed as a standard
+`StructType`, but instead is instantiated using the NewStructureClass, meaning new methods can be called directly on it.
+
+If the situation really calls for an entirely new object, that isn't covered by one of the existing
+:py:class:`~volatility3.framework.objects.PrimativeObject` objects (such as
+:py:class:`~volatility3.framework.objects.Integer`,
+:py:class:`~volatility3.framework.objects.Boolean`,
+:py:class:`~volatility3.framework.objects.Float`,
+:py:class:`~volatility3.framework.objects.Char`,
+:py:class:`~volatility3.framework.objects.Bytes`)
+or the other builtins (such as
+:py:class:`~volatility3.framework.objects.Array`,
+:py:class:`~volatility3.framework.objects.Bitfield`,
+:py:class:`~volatility3.framework.objects.Enumeration`,
+:py:class:`~volatility3.framework.objects.Pointer`,
+:py:class:`~volatility3.framework.objects.String`,
+:py:class:`~volatility3.framework.objects.Void`) then you can review the following information about defining an entirely
+new object.
+
+All objects must inherit from :py:class:`~volatility3.framework.interfaces.objects.ObjectInterface` which defines a
+constructor that takes a context, a `type_name`, an :py:class:`~volatility3.framework.interfaces.objects.ObjectInformation`
+object and then can accept additional keywords (which will not necessarily be provided if the object is constructed
+from a JSON reference).
+
+The :py:class:`~volatility3.framework.interfaces.objects.ObjectInformation` class contains all the basic elements that
+define an object, which include:
+
+* layer_name
+* offset
+* member_name
+* parent
+* native_layer_name
+* size
+
+The layer_name and offset are how volatility reads the data of the object.  Since objects can reference other objects
+(specifically pointers), and contain values that are used as offsets in a particular layer, there is also the concept
+of a native_layer_name.  The native_layer_name allows an object to be constructed based on physical data (for instance)
+but to reference virtual addresses, or for an object in the kernel virtual layer to reference offsets in a process
+virtual layer.
+
+The member_name and parent are optional and are used for when an object is constructed as a member of a structure.
+The parent points back to the object that created this one, and member_name is the name of the attribute of the parent
+used to get to this object.
+
+Finally, some objects are dynamically sized, and this size parameter allows a constructor to specify how big the object
+should be.  Note, the size can change throughout the lifespan of the object, and the object will need to ensure that
+it compensates for such a change.
+
+Objects must also contain a specific class called `VolTemplateProxy` which must inherit from
+:py:class:`~volatility3.framework.interfaces.objects.ObjectInterface`.  This is used to access information about
+a structure before it has been associated with data and becomes an Object.  The
+:py:class:`~volatility3.framework.interfaces.objects.ObjectInterface.VolTemplateProxy` class contains a number of
+abstract classmethods, which take a :py:class:`~volatility3.framework.interfaces.objects.Template`.  The main method
+that is likely to need overwriting is the `size` method, which should return the size of the object (for the template
+of a dynamically-sized object, this should be a suitable value, and calculated based on the best available information).
+For most objects, this can be determined from the JSON data used to construct a normal `Struct` and therefore only needs
+to be defined for very specific objects.
 
 

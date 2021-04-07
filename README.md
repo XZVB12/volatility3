@@ -1,6 +1,6 @@
 # Volatility 3: The volatile memory extraction framework
 
-Volatility is the world’s most widely used framework for extracting digital
+Volatility is the world's most widely used framework for extracting digital
 artifacts from volatile memory (RAM) samples. The extraction techniques are
 performed completely independent of the system being investigated but offer
 visibility into the runtime state of the system. The framework is intended
@@ -45,7 +45,7 @@ git clone https://github.com/volatilityfoundation/volatility3.git
 2. See available options:
 
     ```shell
-    python3 vol.py —h
+    python3 vol.py -h
     ```
 
 3. To get more information on a Windows memory sample and to make sure
@@ -55,10 +55,10 @@ Volatility supports that sample type, run
    Example:
 
     ```shell
-    python3 vol.py —f /home/user/samples/stuxnet.vmem windows.info
+    python3 vol.py -f /home/user/samples/stuxnet.vmem windows.info
     ```
 
-4. Run some other plugins. The `-f` or `—-single-location` is not strictly
+4. Run some other plugins. The `-f` or `--single-location` is not strictly
 required, but most plugins expect a single sample. Some also
 require/accept other options.  Run `python3 vol.py <plugin> -h`
 for more information on a particular command.
@@ -77,7 +77,7 @@ The hashes to verify whether any of the symbol pack files have downloaded succes
 <https://downloads.volatilityfoundation.org/volatility3/symbols/SHA1SUMS>  
 <https://downloads.volatilityfoundation.org/volatility3/symbols/MD5SUMS>  
 
-Symbol tables zip files must be placed, as named, into the `volatility/symbols` directory (or just the symbols directory next to the executable file).
+Symbol tables zip files must be placed, as named, into the `volatility3/symbols` directory (or just the symbols directory next to the executable file).
 
 Windows symbols that cannot be found will be queried, downloaded, generated and cached.  Mac and Linux symbol tables must be manually produced by a tool such as [dwarf2json](https://github.com/volatilityfoundation/dwarf2json).
 
@@ -91,7 +91,7 @@ The latest generated copy of the documentation can be found at: <https://volatil
 
 ## Licensing and Copyright
 
-Copyright (C) 2007-2020 Volatility Foundation
+Copyright (C) 2007-2021 Volatility Foundation
 
 All Rights Reserved
 

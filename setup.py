@@ -4,21 +4,27 @@
 
 import setuptools
 
-from volatility.framework import constants
+from volatility3.framework import constants
 
-setuptools.setup(name = "volatility",
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+setuptools.setup(name = "volatility3",
                  description = "Memory forensics framework",
                  version = constants.PACKAGE_VERSION,
                  license = "VSL",
                  keywords = "volatility memory forensics framework windows linux volshell",
                  author = "Volatility Foundation",
+                 long_description = long_description,
+                 long_description_content_type = "text/markdown",
                  author_email = "volatility@volatilityfoundation.org",
-                 url = "https://volatilityfoundation.org/volatility/",
+                 url = "https://github.com/volatilityfoundation/volatility3/",
                  project_urls = {
                      "Bug Tracker": "https://github.com/volatilityfoundation/volatility3/issues",
-                     "Documentation": "https://volatilityfoundation.org/volatility/docs/",
+                     "Documentation": "https://volatility3.readthedocs.io/",
                      "Source Code": "https://github.com/volatilityfoundation/volatility3",
                  },
+                 python_requires = '>=3.5.3',
                  include_package_data = True,
                  exclude_package_data = {
                      '': ['development', 'development.*'],
@@ -27,12 +33,13 @@ setuptools.setup(name = "volatility",
                  packages = setuptools.find_packages(exclude = ["development", "development.*"]),
                  entry_points = {
                      'console_scripts': [
-                         'vol = volatility.cli:main',
-                         'volshell = volatility.cli.volshell:main',
+                         'vol = volatility3.cli:main',
+                         'volshell = volatility3.cli.volshell:main',
                      ],
                  },
                  install_requires = ["pefile"],
                  extras_require = {
+                     'leechcorepyc': ["leechcorepyc>=2.4.0"],
                      'jsonschema': ["jsonschema>=2.3.0"],
                      'yara': ["yara-python>=3.8.0"],
                      'crypto': ["pycryptodome>=3"],
